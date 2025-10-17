@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ration Card Task Tracker</title>
+<style>
+body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; margin:0; padding:0; background:#f0f2f5; color:#111;}
+.container {max-width:960px; margin:0 auto; padding:16px 10px 180px;}
+h1 {text-align:center; font-size:24px; color:#0b76ef; margin-bottom:12px;}
+.controls {display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:12px;}
+.controls input {padding:8px 12px; border-radius:10px; border:1px solid #ccc; font-size:15px; flex:1; min-width:130px;}
+.controls button {padding:8px 12px; border:none; border-radius:10px; background:#0b76ef; color:white; font-size:14px; cursor:pointer; transition:0.3s;}
+.controls button:hover {background:#095bb5;}
+#progressContainer {width:100%; background:#ddd; border-radius:10px; overflow:hidden; margin:10px 0; display:none;}
+#progressBar {width:0%; height:20px; background:#0b76ef; color:white; text-align:center; line-height:20px; font-size:12px;}
+table {width:100%; border-collapse:collapse; background:white; box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+th, td {padding:12px 8px; text-align:left; border-bottom:1px solid #eee; font-size:14px;}
+tr.done td {background:#e6ffe6; color:#2e7d32;}
+tr:hover {background:#f0f4f8;}
+button:disabled {opacity:0.6; cursor:not-allowed;}
+
+@media (max-width:700px){
+  table, thead, tbody, th, td, tr {display:block;}
+  tr {margin-bottom:12px; background:white; border-radius:12px; padding:10px;}
+  th {display:none;}
+  td {border:none; padding:6px 0;}
+  td::before {content:attr(data-label); font-weight:600; display:inline-block; width:120px;}
+  .controls {flex-direction:column; align-items:stretch;}
+}
+
+/* Dashboard Sticky Bottom */
+.dashboard {
+  position:fixed; bottom:0; left:0; width:100%; background:#0b76ef; color:white;
+  padding:14px 16px; font-weight:500; text-align:center; display:flex; flex-wrap:wrap; justify-content:space-around; font-size:14px;
+  box-shadow:0 -3px 12px rgba(0,0,0,0.15); z-index:100;
+}
+.dashboard div {margin:4px 0; text-align:center; flex:1;}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Ration Card Task Tracker</h1>
+
+<div class="controls">
+<input type="text" id="searchInput" placeholder="नाम या राशन कार्ड नंबर खोजें..." oninput="renderFiltered()">
+<input type="text" id="monthInput" placeholder="Month (07 या 07-09)" value="07">
+<button onclick="allRefresh()">All Refresh</button>
+</div>
+
+<div id="progressContainer">
+  <div id="progressBar">0%</div>
+</div>
+
+<table id="listTable">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>नाम</th>
+      <th>राशन कार्ड नंबर</th>
+      <th>यूनिट</th>
+      <th>स्थिति</th>
+      <th>Date/Time</th>
+      <th>कार्य</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+</div>
+
+<div class="dashboard">
+  <div>कुल कार्ड: <span id="totalCount">0</span></div>
+  <div>लंबित: <span id="pendingCount">0</span></div>
+  <div>पूर्ण: <span id="doneCount">0</span></div>
+  <div>कुल यूनिट: <span id="totalUnits">0</span></div>
+  <div>लंबित यूनिट: <span id="pendingUnits">0</span></div>
+  <div>पूर्ण यूनिट: <span id="doneUnits">0</span></div>
+</div>
+
+<script>
+// ===== Entries =====
+let entries = [
+ {name:'IBRA USMAN', rc:'116420505635', unit:7, done:false},
+  {name:'ZAIBUN NISHA', rc:'116420510110', unit:5, done:false},
+  {name:'MEHNDI HASAN', rc:'116440820913', unit:8, done:false},
+  {name:'MOHD FAIZ', rc:'116440915148', unit:7, done:false},
+  {name:'MOHSIN ALI', rc:'116440964878', unit:8, done:false},
+  {name:'NAFEES FATAMA', rc:'116440993806', unit:7, done:false},
+  {name:'HUMA AFSAR', rc:'116440993829', unit:8, done:false},
+  {name:'AISHA FATIMA', rc:'116441011299', unit:8, done:false},
+  {name:'FAIZAN', rc:'116441013037', unit:8, done:false},
+  {name:'AYAN KHAN', rc:'116441013404', unit:8, done:false},
+  {name:'MOHD ARHAM JAHID', rc:'116441185317', unit:8, done:false},
+  {name:'NASREEN AKHTAR', rc:'116441186551', unit:8, done:false},
+  {name:'TANZILA', rc:'116441199242', unit:8, done:false},
+  {name:'Arham meraj', rc:'116441202344', unit:6, done:false},
+  {name:'JAMEELA BANO', rc:'116441202349', unit:8, done:false},
+  {name:'SAIMA SIDDIQI', rc:'116441202351', unit:8, done:false},
+  {name:'MOHD KALIM', rc:'116441209399', unit:8, done:false},
+  {name:'AYYUB AHMAD', rc:'116441278013', unit:8, done:false},
+  {name:'HAFEEZ AHMAD', rc:'116441314330', unit:6, done:false},
+  {name:'SHAGUFTA YASHMEEN', rc:'116441332924', unit:6, done:false},
+  {name:'RUBINA KAUSAR', rc:'116441335597', unit:1, done:false},
+  {name:'NAZIYA', rc:'116441338691', unit:6, done:false},
+  {name:'RIZWANA PARVEEN', rc:'116441348005', unit:6, done:false},
+  {name:'KALEEM', rc:'116441356725', unit:6, done:false},
+  {name:'IMRAN AHMAD', rc:'116441370115', unit:6, done:false},
+  {name:'AMAAN AHMAD', rc:'116441370533', unit:6, done:false},
+  {name:'MOHD FIROZ', rc:'116441370541', unit:6, done:false},
+  {name:'USMAN ALI', rc:'116441370543', unit:5, done:false},
+  {name:'AIMAN NIYAZ', rc:'116441370581', unit:6, done:false},
+  {name:'JAHID ALI', rc:'116441370586', unit:6, done:false},
+  {name:'ZOHA BASID', rc:'116441370591', unit:6, done:false},
+  {name:'ZOHRA BASID', rc:'116441370594', unit:6, done:false},
+  {name:'KUSHNOOD BEGM', rc:'116441370629', unit:6, done:false},
+  {name:'SAIF KHAN', rc:'116441370754', unit:6, done:false},
+  {name:'GAUSIA', rc:'116441370757', unit:6, done:false},
+  {name:'MALAYKA', rc:'116441370761', unit:6, done:false},
+  {name:'MOHAMMAD SHAHID', rc:'116441370773', unit:6, done:false},
+  {name:'MAAZ SIDDIQUI', rc:'116441370815', unit:6, done:false},
+  {name:'YASHFEEN FATIMA', rc:'116441370824', unit:6, done:false},
+  {name:'PARVEEN', rc:'116441370894', unit:6, done:false},
+  {name:'TASMIYA (Taniya)', rc:'116441370973', unit:6, done:false},
+  {name:'UZMA PARVEEN', rc:'116441370983', unit:6, done:false},
+  {name:'ABUZAR', rc:'116441371035', unit:6, done:false},
+  {name:'NOMAN SHAHID', rc:'116441371111', unit:6, done:false},
+  {name:'MASROOR AHMAD', rc:'116441371114', unit:6, done:false},
+  {name:'IQRA', rc:'116441371265', unit:6, done:false},
+  {name:'Khushnoor', rc:'116441371267', unit:6, done:false},
+  {name:'SHANNO', rc:'116441371274', unit:6, done:false},
+  {name:'ZEESHAN ALI', rc:'116441371276', unit:6, done:false},
+  {name:'INAMUL HAQ', rc:'116441371284', unit:6, done:false},
+  {name:'SHAHIN BANO', rc:'116441371291', unit:6, done:false},
+  {name:'MOHD ANAS', rc:'116441373771', unit:6, done:false},
+  {name:'ASHRAF HUSSAIN', rc:'116441373778', unit:6, done:false},
+  {name:'SABA', rc:'116441373866', unit:6, done:false},
+  {name:'Zameer Ali ( Janu)', rc:'116441373871', unit:6, done:false},
+  {name:'RAHAT BEGUM', rc:'116441373877', unit:6, done:false},
+  {name:'NIJAMUDDIN', rc:'116441373897', unit:6, done:false},
+  {name:'ISHTIYAQ ALI', rc:'116441373901', unit:6, done:false},
+  {name:'AMAAN KHAN', rc:'116441373906', unit:6, done:false},
+  {name:'RAFEEK AHMAD', rc:'116441373916', unit:6, done:false},
+  {name:'Yasmeen akhtar', rc:'116441373919', unit:6, done:false},
+  {name:'BADRUDUJA', rc:'116441374019', unit:6, done:false},
+  {name:'FAREEN MANA', rc:'116441374020', unit:6, done:false},
+  {name:'GAUSIYA HAMEED', rc:'116441374024', unit:6, done:false},
+  {name:'BILAKIS BEGUM', rc:'116441374030', unit:6, done:false},
+  {name:'ILMA AZEEZ', rc:'116441374107', unit:6, done:false},
+  {name:'RAZIA BEGUM', rc:'116441374110', unit:6, done:false},
+  {name:'GULAFSHAN AZEEZ', rc:'116441374127', unit:6, done:false},
+  {name:'RIJWANA KHATOON', rc:'116441374134', unit:6, done:false},
+  {name:'SHAHAB', rc:'116441374137', unit:6, done:false},
+  {name:'LUCKY', rc:'116441374141', unit:6, done:false},
+  {name:'ARSHLAN AHMAD', rc:'116441374271', unit:6, done:false},
+  {name:'SHABANA', rc:'116441374275', unit:6, done:false},
+  {name:'NAFEESA (Shahab)', rc:'116441374276', unit:6, done:false},
+  {name:'Aftab', rc:'116441376413', unit:6, done:false},
+  {name:'SHAMREZ ALI', rc:'116441376626', unit:6, done:false},
+  {name:'UMRA', rc:'116441376630', unit:6, done:false},
+  {name:'NOOR ASMA', rc:'116441376633', unit:6, done:false},
+  {name:'KAUSAR', rc:'116441376645', unit:6, done:false},
+  {name:'DANISH ALI', rc:'116441376710', unit:6, done:false},
+  {name:'MARIYAM', rc:'116441376712', unit:6, done:false},
+  {name:'JUNAID BHAI', rc:'116441376739', unit:6, done:false},
+  {name:'RUKSHKAR', rc:'116441376746', unit:6, done:false},
+  {name:'ARAF', rc:'116441376748', unit:6, done:false},
+  {name:'rubeena arshi', rc:'116441376750', unit:6, done:false},
+  {name:'ZEBA', rc:'116441376758', unit:6, done:false},
+  {name:'MOHD SHAKIR', rc:'116441376769', unit:6, done:false},
+  {name:'GULAM MOIN HASAN', rc:'116441376770', unit:6, done:false},
+  {name:'IQRA FATIMA', rc:'116441376892', unit:6, done:false},
+  {name:'RAMZANA BANO', rc:'116441376895', unit:6, done:false}
+];
+
+const tbody = document.querySelector('#listTable tbody');
+const totalCount = document.getElementById('totalCount');
+const pendingCount = document.getElementById('pendingCount');
+const doneCount = document.getElementById('doneCount');
+const totalUnits = document.getElementById('totalUnits');
+const pendingUnits = document.getElementById('pendingUnits');
+const doneUnits = document.getElementById('doneUnits');
+const progressContainer = document.getElementById('progressContainer');
+const progressBar = document.getElementById('progressBar');
+let sno=1;
+
+// ===== Render Table =====
+function render(filtered=entries){
+    tbody.innerHTML='';
+    const sorted = filtered.slice().sort((a,b)=> a.done - b.done);
+    sorted.forEach(e=>{
+        const tr = document.createElement('tr');
+        if(e.done) tr.classList.add('done');
+        tr.innerHTML = `
+          <td data-label="#">${sno++}</td>
+          <td data-label="नाम">${e.name}</td>
+          <td data-label="राशन कार्ड नंबर">${e.rc}</td>
+          <td data-label="यूनिट">${e.unit}</td>
+          <td data-label="स्थिति">${e.done ? '✅ पूर्ण' : 'लंबित'}</td>
+          <td data-label="Date/Time">${e.DT||''}</td>
+          <td data-label="कार्य"><button onclick="refreshRow(this,'${e.rc}')">Refresh</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+    updateDashboard();
+    sno=1;
+}
+
+function renderFiltered(){
+    const term = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = entries.filter(e=>e.name.toLowerCase().includes(term) || e.rc.includes(term));
+    render(filtered);
+}
+
+function updateDashboard(){
+    const doneList = entries.filter(e=>e.done);
+    const done = doneList.length;
+    const total = entries.length;
+    const pending = total - done;
+    const totalUnitSum = entries.reduce((a,b)=>a+(b.unit||0),0);
+    const doneUnitSum = doneList.reduce((a,b)=>a+(b.unit||0),0);
+    const pendingUnitSum = totalUnitSum - doneUnitSum;
+
+    totalCount.textContent = total;
+    doneCount.textContent = done;
+    pendingCount.textContent = pending;
+    totalUnits.textContent = totalUnitSum;
+    doneUnits.textContent = doneUnitSum;
+    pendingUnits.textContent = pendingUnitSum;
+}
+
+// ===== Refresh Row =====
+async function refreshRow(button, rcid){
+    const monthInput = document.getElementById('monthInput').value.trim();
+    button.disabled=true;
+    button.innerText='Refreshing...';
+    try{
+        let res = await fetch('fetch.php',{
+            method:'POST',
+            headers:{'Content-Type':'application/x-www-form-urlencoded'},
+            body:'id='+encodeURIComponent(rcid)+'&month='+encodeURIComponent(monthInput)
+        });
+        let data = await res.json();
+        const tr = button.closest('tr');
+        if(data.rows && data.rows.length && parseFloat(data.rows[0].quantity_lifted||0)>0){
+            tr.classList.add('done');
+            let unitDivided = parseFloat(data.rows[0].quantity_lifted)/2;
+            tr.querySelector('td[data-label="यूनिट"]').innerText = unitDivided;
+            tr.querySelector('td[data-label="Date/Time"]').innerText = data.rows[0].DT||'';
+            tr.querySelector('td[data-label="नाम"]').innerText = data.rows[0].member_name_ll||tr.querySelector('td[data-label="नाम"]').innerText;
+
+            const entry = entries.find(e=>e.rc===rcid);
+            if(entry){
+                entry.done=true;
+                entry.unit=unitDivided;
+                entry.DT=data.rows[0].DT||'';
+                entry.name = data.rows[0].member_name_ll||entry.name;
+            }
+            button.innerText='✅ Success';
+        }else{
+            button.innerText='❌ No Data';
+        }
+    }catch(err){
+        button.innerText='❌ Error';
+    }finally{
+        setTimeout(()=>button.innerText='Refresh',1500);
+        button.disabled=false;
+        renderFiltered();
+    }
+}
+
+// ===== All Refresh =====
+async function allRefresh(){
+    const pendingEntries = entries.filter(e=>!e.done);
+    const total = pendingEntries.length;
+    let processed=0;
+    if(total===0) return alert('No pending entries!');
+    progressContainer.style.display='block';
+    progressBar.style.width='0%';
+    progressBar.innerText='0%';
+    for(let entry of pendingEntries){
+        const btn = tbody.querySelector(`button[onclick*="${entry.rc}"]`);
+        if(btn) await refreshRow(btn, entry.rc);
+        processed++;
+        const percent = Math.round((processed/total)*100);
+        progressBar.style.width=percent+'%';
+        progressBar.innerText=percent+'%';
+    }
+    setTimeout(()=>progressContainer.style.display='none',500);
+}
+
+// ===== Initial Render =====
+render();
+</script>
+</body>
+</html>
